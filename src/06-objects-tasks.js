@@ -20,8 +20,18 @@
  *    console.log(r.height);      // => 20
  *    console.log(r.getArea());   // => 200
  */
-function Rectangle(/* width, height */) {
-  throw new Error('Not implemented');
+function Rectangle(width, height) {
+  class R {
+    constructor() {
+      this.width = width;
+      this.height = height;
+    }
+
+    getArea() {
+      return this.width * this.height;
+    }
+  }
+  return new R();
 }
 
 
@@ -35,8 +45,8 @@ function Rectangle(/* width, height */) {
  *    [1,2,3]   =>  '[1,2,3]'
  *    { width: 10, height : 20 } => '{"height":10,"width":20}'
  */
-function getJSON(/* obj */) {
-  throw new Error('Not implemented');
+function getJSON(obj) {
+  return JSON.stringify(obj);
 }
 
 
@@ -51,8 +61,8 @@ function getJSON(/* obj */) {
  *    const r = fromJSON(Circle.prototype, '{"radius":10}');
  *
  */
-function fromJSON(/* proto, json */) {
-  throw new Error('Not implemented');
+function fromJSON(proto, json) {
+  return Object.setPrototypeOf(JSON.parse(json), proto);
 }
 
 
@@ -110,36 +120,100 @@ function fromJSON(/* proto, json */) {
  *  For more examples see unit tests.
  */
 
+function stringify() {
+  const {
+    element,
+    id,
+    classes,
+    attrs,
+    pseudoClasses,
+    pseudoElement,
+  } = this.parts;
+  return [element, id, classes, attrs, pseudoClasses, pseudoElement].flat().join('');
+}
+
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  element(value) {
+    if (this.parts.element) {
+      throw new Error('Element, id and pseudo-element should not occur more then one time inside the selector');
+    }
+    if (['id', 'classes', 'attrs', 'pseudoClasses', 'pseudoElement'].some((key) => this.parts[key])) {
+      throw new Error('Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element');
+    }
+    return Object.setPrototypeOf({ parts: { element: value }, stringify }, cssSelectorBuilder);
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
+  id(value) {
+    if (this.parts.id) {
+      throw new Error('Element, id and pseudo-element should not occur more then one time inside the selector');
+    }
+    if (['classes', 'attrs', 'pseudoClasses', 'pseudoElement'].some((key) => this.parts[key])) {
+      throw new Error('Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element');
+    }
+    return Object.setPrototypeOf(
+      { parts: { ...this.parts, id: `#${value}` }, stringify },
+      cssSelectorBuilder,
+    );
   },
 
-  class(/* value */) {
-    throw new Error('Not implemented');
+  class(value) {
+    if (['attrs', 'pseudoClasses', 'pseudoElement'].some((key) => this.parts[key])) {
+      throw new Error('Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element');
+    }
+    return Object.setPrototypeOf({
+      parts: {
+        ...this.parts,
+        classes: [...this.parts.classes || [], `.${value}`],
+      },
+      stringify,
+    }, cssSelectorBuilder);
   },
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
+  attr(value) {
+    if (this.parts.pseudoClasses || this.parts.pseudoElement) {
+      throw new Error('Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element');
+    }
+    return Object.setPrototypeOf({
+      parts: {
+        ...this.parts,
+        attrs: [...this.parts.attrs || [], `[${value}]`],
+      },
+      stringify,
+    }, cssSelectorBuilder);
   },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
+  pseudoClass(value) {
+    if (this.parts.pseudoElement) {
+      throw new Error('Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element');
+    }
+    return Object.setPrototypeOf({
+      parts: {
+        ...this.parts,
+        pseudoClasses: [...this.parts.pseudoClasses || [], `:${value}`],
+      },
+      stringify,
+    }, cssSelectorBuilder);
   },
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+  pseudoElement(value) {
+    if (this.parts.pseudoElement) {
+      throw new Error('Element, id and pseudo-element should not occur more then one time inside the selector');
+    }
+    return Object.setPrototypeOf(
+      { parts: { ...this.parts, pseudoElement: `::${value}` }, stringify },
+      cssSelectorBuilder,
+    );
   },
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  combine(selector1, combinator, selector2) {
+    return {
+      stringify() {
+        return `${selector1.stringify()} ${combinator} ${selector2.stringify()}`;
+      },
+    };
   },
+  parts: {},
 };
-
 
 module.exports = {
   Rectangle,
